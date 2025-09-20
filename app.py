@@ -75,17 +75,11 @@ def sdm_main():
         if REQUIRE_LRP and res['encryption_mode'] != EncMode.LRP:
             raise BadRequest("Invalid encryption mode, expected LRP.")
 
-        if request.args.get("output") == "json":
-            return jsonify({
-                "uid": res['uid'].hex().upper(),
-                "read_ctr": res['read_ctr'],
-                "enc_mode": res['encryption_mode'].name
-            })
-
-        return render_template('sdm_info.html',
-                               encryption_mode=res['encryption_mode'].name,
-                               uid=res['uid'],
-                               read_ctr_num=res['read_ctr'])
+        return jsonify({
+            "uid": res['uid'].hex().upper(),
+            "read_ctr": res['read_ctr'],
+            "enc_mode": res['encryption_mode'].name
+        })
 
     # If no parameters, show main page
     return render_template('sdm_main.html')
