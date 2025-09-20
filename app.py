@@ -47,10 +47,6 @@ def handler_not_found(err):
     return render_template('error.html', code=404, msg=str(err)), 404
 
 
-@app.context_processor
-def inject_demo_mode():
-    demo_mode = MASTER_KEY == (b"\x00" * 16)
-    return {"demo_mode": demo_mode}
 
 
 @app.route('/')
