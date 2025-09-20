@@ -61,7 +61,10 @@ def sdm_main():
             read_ctr = binascii.unhexlify(request.args[CTR_PARAM])
             cmac = binascii.unhexlify(request.args[SDMMAC_PARAM])
         except binascii.Error:
-            raise BadRequest("Failed to decode parameters.") from None
+            return jsonify({
+                "valid": False,
+                "error": "Failed to decode parameters."
+            })
 
         try:
             sdm_file_read_key = derive_tag_key(MASTER_KEY, uid, 2)
@@ -70,12 +73,20 @@ def sdm_main():
                                      sdmmac=cmac,
                                      sdm_file_read_key=sdm_file_read_key)
         except InvalidMessage:
-            raise BadRequest("Invalid message (most probably wrong signature).") from None
+            return jsonify({
+                "valid": False,
+                "error": "Invalid message (most probably wrong signature)."
+            })
 
         if REQUIRE_LRP and res['encryption_mode'] != EncMode.LRP:
-            raise BadRequest("Invalid encryption mode, expected LRP.")
+            return jsonify({
+                "valid": False,
+                "error": "Invalid encryption mode, expected LRP."
+            })
 
         return jsonify({
+            "valid": True,
+            "message": "Cryptographic signature validated",
             "uid": res['uid'].hex().upper(),
             "read_ctr": res['read_ctr'],
             "enc_mode": res['encryption_mode'].name
