@@ -56,52 +56,43 @@ def inject_demo_mode():
 @app.route('/')
 def sdm_main():
     """
-    Main page with a few examples.
+    Main page with validation functionality.
     """
+    # Check if parameters are provided for validation
+    if request.args.get(UID_PARAM) and request.args.get(CTR_PARAM) and request.args.get(SDMMAC_PARAM):
+        try:
+            uid = binascii.unhexlify(request.args[UID_PARAM])
+            read_ctr = binascii.unhexlify(request.args[CTR_PARAM])
+            cmac = binascii.unhexlify(request.args[SDMMAC_PARAM])
+        except binascii.Error:
+            raise BadRequest("Failed to decode parameters.") from None
+
+        try:
+            sdm_file_read_key = derive_tag_key(MASTER_KEY, uid, 2)
+            res = validate_plain_sun(uid=uid,
+                                     read_ctr=read_ctr,
+                                     sdmmac=cmac,
+                                     sdm_file_read_key=sdm_file_read_key)
+        except InvalidMessage:
+            raise BadRequest("Invalid message (most probably wrong signature).") from None
+
+        if REQUIRE_LRP and res['encryption_mode'] != EncMode.LRP:
+            raise BadRequest("Invalid encryption mode, expected LRP.")
+
+        if request.args.get("output") == "json":
+            return jsonify({
+                "uid": res['uid'].hex().upper(),
+                "read_ctr": res['read_ctr'],
+                "enc_mode": res['encryption_mode'].name
+            })
+
+        return render_template('sdm_info.html',
+                               encryption_mode=res['encryption_mode'].name,
+                               uid=res['uid'],
+                               read_ctr_num=res['read_ctr'])
+
+    # If no parameters, show main page
     return render_template('sdm_main.html')
-
-
-
-
-@app.route('/tagpt')
-def sdm_info_plain():
-    """
-    Return HTML
-    """
-    return _internal_tagpt()
-
-
-def _internal_tagpt(force_json=False):
-    try:
-        uid = binascii.unhexlify(request.args[UID_PARAM])
-        read_ctr = binascii.unhexlify(request.args[CTR_PARAM])
-        cmac = binascii.unhexlify(request.args[SDMMAC_PARAM])
-    except binascii.Error:
-        raise BadRequest("Failed to decode parameters.") from None
-
-    try:
-        sdm_file_read_key = derive_tag_key(MASTER_KEY, uid, 2)
-        res = validate_plain_sun(uid=uid,
-                                 read_ctr=read_ctr,
-                                 sdmmac=cmac,
-                                 sdm_file_read_key=sdm_file_read_key)
-    except InvalidMessage:
-        raise BadRequest("Invalid message (most probably wrong signature).") from None
-
-    if REQUIRE_LRP and res['encryption_mode'] != EncMode.LRP:
-        raise BadRequest("Invalid encryption mode, expected LRP.")
-
-    if request.args.get("output") == "json" or force_json:
-        return jsonify({
-            "uid": res['uid'].hex().upper(),
-            "read_ctr": res['read_ctr'],
-            "enc_mode": res['encryption_mode'].name
-        })
-
-    return render_template('sdm_info.html',
-                           encryption_mode=res['encryption_mode'].name,
-                           uid=res['uid'],
-                           read_ctr_num=res['read_ctr'])
 
 
 if __name__ == '__main__':
